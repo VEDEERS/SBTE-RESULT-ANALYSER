@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Analysis Tool</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Asap+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Asap Condensed', 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .header { background: linear-gradient(135deg, #1a3a5c, #2d5a87); color: white; padding: 12px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); position: sticky; top: 0; z-index: 100; }
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header-sub { font-size: 12px; opacity: 0.9; }
+        .upload-area { background: white; border: 2px dashed #2d5a87; border-radius: 8px; padding: 15px; text-align: center; margin: 12px 15px; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { background: #f8f9ff; border-color: #1a3a5c; }
+        .upload-area.dragover { background: #e8edf5; border-color: #28a745; }
+        .upload-area input[type="file"] { display: none; }
+        .upload-icon { font-size: 32px; display: block; margin-bottom: 8px; }
+        .controls { padding: 10px 15px; max-width: 1400px; margin: 0 auto; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: white; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        .controls label { font-weight: 500; font-size: 12px; color: #555; }
+        .controls input, .controls select { padding: 5px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; background: white; font-family: 'Asap Condensed', sans-serif; }
+        .controls input:focus, .controls select:focus { outline: none; border-color: #2d5a87; box-shadow: 0 0 0 2px rgba(45, 90, 135, 0.2); }
+        .btn { padding: 5px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; font-family: 'Asap Condensed', sans-serif; }
+        .btn-primary { background: #2d5a87; color: white; }
+        .btn-primary:hover { background: #1a3a5c; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        .result-container { max-width: 1400px; margin: 0 auto; padding: 0 15px 15px; display: none; }
+        .result-container.active { display: block; }
+        .section-title { font-size: 16px; font-weight: 600; color: #1a3a5c; margin: 15px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #e9ecef; font-family: 'Asap Condensed', sans-serif; }
+        .table-wrapper { overflow-x: auto; background: white; border-radius: 6px; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; font-family: 'Asap Condensed', sans-serif; }
+        table th { background: #2d5a87; color: white; padding: 4px 6px; text-align: center; border: 1px solid #1a3a5c; font-weight: 600; }
+        table td { padding: 4px 6px; border: 1px solid #dee2e6; text-align: center; }
+        table tr:nth-child(even) { background: #f8f9fa; }
+        .grade-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-weight: 600; font-size: 10px; min-width: 18px; text-align: center; font-family: 'Asap Condensed', sans-serif; }
+        .grade-S { background: #e8f5e9; color: #2e7d32; }
+        .grade-A { background: #e3f2fd; color: #0d47a1; }
+        .grade-B { background: #e3f2fd; color: #0d47a1; }
+        .grade-C { background: #f5f5f5; color: #333; }
+        .grade-D { background: #fff3e0; color: #e65100; }
+        .grade-E { background: #fff3e0; color: #e65100; }
+        .grade-F { background: #dc3545; color: white; }
+        .grade-Absent { background: #6c757d; color: white; }
+        .grade-With-held { background: #343a40; color: white; }
+        .grade-\* { background: #e9ecef; color: #666; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        .summary-card { background: white; border-radius: 6px; padding: 10px 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); text-align: center; border-left: 4px solid #2d5a87; font-family: 'Asap Condensed', sans-serif; }
+        .summary-card .value { font-size: 22px; font-weight: 700; }
+        .summary-card .label { font-size: 11px; color: #666; }
+        .summary-card.pass { border-left-color: #28a745; }
+        .summary-card.fail { border-left-color: #dc3545; }
+        .summary-card.total { border-left-color: #007bff; }
+        .summary-card.withheld { border-left-color: #fd7e14; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; font-family: 'Asap Condensed', sans-serif; }
+        .status-pass { background: #d4edda; color: #155724; }
+        .status-fail { background: #f8d7da; color: #721c24; }
+        .status-absent { background: #e2e3e5; color: #383d41; }
+        .status-withheld { background: #fff3cd; color: #856404; }
+        .footer { text-align: center; padding: 10px; color: #666; font-size: 11px; max-width: 1400px; margin: 0 auto; font-family: 'Asap Condensed', sans-serif; }
+        .loading { text-align: center; padding: 30px; color: #666; font-family: 'Asap Condensed', sans-serif; }
+        .subject-header { white-space: normal !important; word-wrap: break-word; max-width: 55px; line-height: 1.2; font-size: 10px; font-family: 'Asap Condensed', sans-serif; }
+        .subject-code-row th { background: #1a3a5c; font-size: 10px; padding: 2px 4px; }
+        .credit-row th { background: #3a6a9a; font-size: 9px; padding: 2px 4px; }
+        .pdf-export-btn { background: #dc3545; color: white; padding: 5px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: 'Asap Condensed', sans-serif; }
+        .pdf-export-btn:hover { background: #c82333; }
+        .sort-btn { background: #6c757d; color: white; padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; font-family: 'Asap Condensed', sans-serif; }
+        .sort-btn:hover { background: #5a6268; }
+        .sort-btn.active { background: #2d5a87; }
+        .college-input { padding: 6px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; width: 200px; font-family: 'Asap Condensed', sans-serif; }
+        .college-input:focus { outline: none; border-color: #2d5a87; box-shadow: 0 0 0 2px rgba(45, 90, 135, 0.2); }
+        .dept-input { padding: 6px 12px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; width: 180px; font-family: 'Asap Condensed', sans-serif; }
+        .dept-input:focus { outline: none; border-color: #2d5a87; box-shadow: 0 0 0 2px rgba(45, 90, 135, 0.2); }
+        .open-elective-tag { background: #fd7e14; color: white; padding: 1px 6px; border-radius: 3px; font-size: 8px; margin-left: 2px; font-family: 'Asap Condensed', sans-serif; }
+        .info-row { display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
+        .info-row label { font-weight: 500; font-size: 12px; color: #555; white-space: nowrap; }
+        .page-break { page-break-before: always; break-before: page; }
+        @media (max-width: 768px) { .header h1 { font-size: 16px; } .controls { flex-direction: column; align-items: stretch; } .summary-grid { grid-template-columns: repeat(2, 1fr); } table { font-size: 9px; } table th, table td { padding: 3px 4px; } .college-input, .dept-input { width: 100%; } .info-row { flex-direction: column; align-items: stretch; } }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header no-print">
+        <div class="header-content">
+            <div>
+                <h1>📊 Result Analysis Tool</h1>
+                <div class="header-sub" id="headerCollegeName">Enter college name below</div>
+            </div>
+            <div>
+                <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-family: 'Asap Condensed', sans-serif;">
+                    📅 Semester-wise Analysis
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Area -->
+    <div class="upload-area no-print" id="uploadArea">
+        <span class="upload-icon">📁</span>
+        <div style="font-size: 15px; font-weight: 500; margin: 5px 0; font-family: 'Asap Condensed', sans-serif;">
+            Click to upload Excel/CSV file
+        </div>
+        <div style="font-size: 12px; color: #666; font-family: 'Asap Condensed', sans-serif;">
+            Upload your SBTE result file (.xlsx or .csv) - Only Regular students will be processed
+        </div>
+        <div style="font-size: 11px; color: #999; margin-top: 5px; font-family: 'Asap Condensed', sans-serif;">
+            Auto-detects Open Electives and merges into single column
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    </div>
+
+    <!-- College & Department Input -->
+    <div class="controls no-print" id="infoSection" style="display:none;">
+        <div class="info-row">
+            <label>🏫 College:</label>
+            <input type="text" class="college-input" id="collegeName" value="" placeholder="Enter College Name">
+            <label>📚 Department:</label>
+            <input type="text" class="dept-input" id="deptName" value="Civil Engineering" placeholder="Enter Department">
+            <button class="btn btn-primary" onclick="updateInfo()">Update</button>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls no-print" id="controlsSection" style="display:none;">
+        <label style="font-family: 'Asap Condensed', sans-serif;">🔍 Search:</label>
+        <input type="text" id="searchInput" placeholder="Name or Register No..." oninput="filterData()">
+        <label style="font-family: 'Asap Condensed', sans-serif;">Status:</label>
+        <select id="statusFilter" onchange="filterData()">
+            <option value="all">All</option>
+            <option value="Pass">Passed</option>
+            <option value="Fail">Failed</option>
+            <option value="Absent">Absent</option>
+            <option value="With-held">Withheld</option>
+        </select>
+        <label style="font-family: 'Asap Condensed', sans-serif;">Sort by:</label>
+        <button class="sort-btn active" id="sortSGPA" onclick="sortData('sgpa')">SGPA</button>
+        <button class="sort-btn" id="sortRegNo" onclick="sortData('regNo')">Reg No</button>
+        <button class="sort-btn" id="sortName" onclick="sortData('name')">Name</button>
+        <button class="sort-btn" id="sortPercentage" onclick="sortData('percentage')">%</button>
+        <button class="btn btn-success" onclick="exportToExcel()">📥 Excel</button>
+        <button class="btn btn-danger pdf-export-btn" onclick="exportPDF()">📄 PDF</button>
+        <button class="btn btn-danger" onclick="resetAll()">🔄 Reset</button>
+    </div>
+
+    <!-- Result Container -->
+    <div class="result-container" id="resultContainer">
+        <div id="resultContent"></div>
+    </div>
+
+    <div class="footer no-print">
+        Generated on: <span id="generatedDate"></span> | Result Analysis Tool
+    </div>
+
+    <script>
+        // ============================================================
+        // CREDIT DATABASE
+        // ============================================================
+        const CREDIT_DATABASE = {
+            '1001': { name: 'Communication Skills in English', credit: 4 },
+            '1002': { name: 'Mathematics I', credit: 5 },
+            '1003': { name: 'Applied Physics I', credit: 3 },
+            '1004': { name: 'Applied Chemistry', credit: 3 },
+            '1005': { name: 'Engineering Graphics', credit: 1.5 },
+            '1007': { name: 'Applied Chemistry Lab', credit: 1 },
+            '1008': { name: 'Introduction to IT Systems Lab', credit: 2 },
+            '1009': { name: 'Sports and Yoga', credit: 1 },
+            '2001': { name: 'Environmental Science', credit: 0 },
+            '2002': { name: 'Mathematics II', credit: 4 },
+            '2003': { name: 'Applied Physics II', credit: 3 },
+            '2006': { name: 'Applied Physics Lab', credit: 1 },
+            '2008': { name: 'Communication Skills in English Lab', credit: 1.5 },
+            '2009': { name: 'Engineering Workshop Practice', credit: 1.5 },
+            '2011': { name: 'Basic Surveying', credit: 3 },
+            '2019': { name: 'Basic Surveying Lab', credit: 0 },
+            '2021': { name: 'Engineering Mechanics', credit: 3 },
+            '2029': { name: 'Engineering Mechanics Lab', credit: 0 },
+            '3009': { name: 'Internship I', credit: 2 },
+            '3011': { name: 'Advanced Surveying', credit: 3 },
+            '3012': { name: 'Concrete Technology', credit: 3 },
+            '3013': { name: 'Building Construction and Construction Materials', credit: 4 },
+            '3014': { name: 'Theory of Structures', credit: 4 },
+            '3015': { name: 'Concrete Technology Lab', credit: 1.5 },
+            '3016': { name: 'Surveying Lab', credit: 1.5 },
+            '3017': { name: 'Construction Materials Lab', credit: 1.5 },
+            '3018': { name: 'Building Drawing and Estimation Lab', credit: 1.5 },
+            '3019': { name: 'CAD Lab', credit: 0 },
+            '4001': { name: 'Community Skills in Indian Knowledge System', credit: 0 },
+            '4009': { name: 'Minor Project', credit: 2 },
+            '4011': { name: 'Geotechnical Engineering', credit: 4 },
+            '4012': { name: 'Hydraulics and Irrigation Engineering', credit: 4 },
+            '4013': { name: 'Estimating & Costing', credit: 4 },
+            '4016': { name: 'Advanced Surveying Lab', credit: 1.5 },
+            '4017': { name: 'Hydraulics and Irrigation Engineering Lab', credit: 1.5 },
+            '4018': { name: 'Estimating and Costing Lab', credit: 1.5 },
+            '4019': { name: 'Geotechnical Engineering Lab', credit: 0 },
+            '5008': { name: 'Seminar', credit: 1 },
+            '5009': { name: 'Internship II', credit: 3 },
+            '5011': { name: 'Construction Management and Safety Engineering', credit: 0 },
+            '5012': { name: 'Design of Steel and RCC Structures', credit: 5 },
+            '5013': { name: 'Transportation Engineering', credit: 4 },
+            '5014A': { name: 'Habitat Technology', credit: 3 },
+            '5014B': { name: 'Ground Improvement Techniques', credit: 3 },
+            '5014C': { name: 'Precast and Prestressed Concrete', credit: 3 },
+            '5017': { name: 'Transportation Engineering Lab', credit: 1.5 },
+            '5018': { name: 'Structural Engineering Drawing Lab', credit: 1.5 },
+            '5019': { name: 'Advanced CAD Lab', credit: 1.5 },
+            '6001': { name: 'Entrepreneurship and Startup', credit: 4 },
+            '6002': { name: 'Indian Constitution', credit: 0 },
+            '6007': { name: 'Internship (Internship Pathway)', credit: 13.5 },
+            '6009': { name: 'Major Project', credit: 4 },
+            '6011A': { name: 'Public Health Engineering', credit: 4 },
+            '6011B': { name: 'Building Maintenance and Services', credit: 4 },
+            '6011C': { name: 'Pavement Design and Maintenance', credit: 4 },
+            '6012A': { name: 'Renewable Energy and Environment', credit: 4 },
+            '6012B': { name: 'Sustainable Development', credit: 4 },
+            '6012C': { name: 'Disaster Management (CE)', credit: 4 },
+            '6012D': { name: 'Rural Technology', credit: 4 },
+            '6017': { name: 'Computer Application Lab', credit: 2.5 },
+            '6018': { name: 'Material Testing Lab (CE)', credit: 1.5 },
+            '6019': { name: 'Public Health Engineering Lab', credit: 1.5 }
+        };
+
+        const GRADE_POINTS = {
+            'S': 10, 'A': 9, 'B': 8, 'C': 7, 'D': 6, 'E': 5, 'F': 0, 'Absent': 0, 'With-held': 0, '*': 0, '': 0
+        };
+
+        let allStudents = [];
+        let filteredStudents = [];
+        let subjectColumns = [];
+        let subjectCodeMap = {};
+        let openElectiveColumns = [];
+        let semesterDetected = '';
+        let currentSort = 'sgpa';
+        let sortAscending = false;
+        let collegeName = '';
+        let deptName = 'Civil Engineering';
+
+        // ============================================================
+        // FILE UPLOAD
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            uploadArea.addEventListener('click', function(e) {
+                e.stopPropagation();
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                handleFile(file);
+                fileInput.value = '';
+            });
+            
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+            
+            document.getElementById('generatedDate').textContent = new Date().toLocaleString();
+            document.getElementById('collegeName').placeholder = 'Enter College Name';
+            document.getElementById('deptName').value = 'Civil Engineering';
+        });
+
+        // ============================================================
+        // HANDLE FILE
+        // ============================================================
+        function handleFile(file) {
+            resetAll();
+            
+            const reader = new FileReader();
+            
+            if (file.name.endsWith('.csv')) {
+                reader.onload = function(e) {
+                    try {
+                        const csv = e.target.result;
+                        parseCSV(csv);
+                    } catch (err) {
+                        alert('Error reading CSV file: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                        parseJSON(jsonData);
+                    } catch (err) {
+                        alert('Error reading Excel file: ' + err.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        // ============================================================
+        // PARSE CSV
+        // ============================================================
+        function parseCSV(csv) {
+            const lines = csv.split('\n').filter(line => line.trim());
+            if (lines.length < 2) { alert('CSV file is empty.'); return; }
+            
+            let delimiter = ',';
+            if (lines[0].includes('\t')) delimiter = '\t';
+            else if (lines[0].includes(';')) delimiter = ';';
+            
+            const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+            const jsonData = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+                const row = {};
+                headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
+                if (row['Name of Student'] || row['Name'] || row['Student Name']) {
+                    jsonData.push(row);
+                }
+            }
+            
+            if (jsonData.length === 0) { alert('No data rows found.'); return; }
+            processData(jsonData);
+        }
+
+        // ============================================================
+        // PARSE JSON (Excel)
+        // ============================================================
+        function parseJSON(data) {
+            if (!data || data.length === 0) { alert('No data found.'); return; }
+            
+            const cleanData = data.filter(row => {
+                const name = row['Name of Student'] || row['Name'] || row['Student Name'] || '';
+                return name.toString().trim() !== '';
+            });
+            
+            if (cleanData.length === 0) { alert('No valid student data.'); return; }
+            processData(cleanData);
+        }
+
+        // ============================================================
+        // UPDATE INFO
+        // ============================================================
+        function updateInfo() {
+            const collegeInput = document.getElementById('collegeName');
+            const deptInput = document.getElementById('deptName');
+            collegeName = collegeInput.value.trim() || '';
+            deptName = deptInput.value.trim() || 'Civil Engineering';
+            document.getElementById('headerCollegeName').textContent = collegeName || 'Enter college name below';
+            renderResults();
+        }
+
+        // ============================================================
+        // OPEN ELECTIVE DETECTION
+        // ============================================================
+        function isOpenElective(code, columnName) {
+            if (CREDIT_DATABASE[code]) return false;
+            if (/^\d{4}[A-Z]?$/.test(code) && code.startsWith('6') && !CREDIT_DATABASE[code]) return true;
+            const electiveKeywords = ['Elective', 'Technology', 'IoT', 'Web', 'Cloud', 'Renewable', 'Hybrid', 'Electric', 'Fundamentals', 'Concepts', 'Introduction'];
+            const lowerName = columnName.toLowerCase();
+            for (const keyword of electiveKeywords) {
+                if (lowerName.includes(keyword.toLowerCase())) return true;
+            }
+            return false;
+        }
+
+        // ============================================================
+        // MAIN DATA PROCESSING
+        // ============================================================
+        function processData(data) {
+            const regularData = data.filter(row => {
+                const type = (row['Type'] || '').toString().trim();
+                return type === 'Regular' || type === 'REGULAR' || type === '' || type === 'regular';
+            });
+            if (regularData.length === 0) { alert('No Regular students found.'); return; }
+
+            const headers = Object.keys(regularData[0] || {});
+            subjectColumns = [];
+            subjectCodeMap = {};
+            openElectiveColumns = [];
+
+            const potentialSubjects = [];
+            headers.forEach(h => {
+                const cleanH = h.trim();
+                if (['Stream', 'Name of Student', 'Register No', 'Block', 'Type', 'Sl.No', 'S.No', '6000-Activity Points'].includes(cleanH)) return;
+                const codeMatch = cleanH.match(/^(\d{4}[A-Z]?)/);
+                if (codeMatch) {
+                    potentialSubjects.push({ header: cleanH, code: codeMatch[1] });
+                } else {
+                    const codeInHeader = cleanH.match(/\b(\d{4}[A-Z]?)\b/);
+                    if (codeInHeader) potentialSubjects.push({ header: cleanH, code: codeInHeader[1] });
+                }
+            });
+
+            potentialSubjects.forEach(item => {
+                const { header, code } = item;
+                if (CREDIT_DATABASE[code]) {
+                    subjectColumns.push(header);
+                    subjectCodeMap[header] = code;
+                } else if (isOpenElective(code, header)) {
+                    openElectiveColumns.push(header);
+                    subjectCodeMap[header] = 'OE';
+                } else {
+                    subjectColumns.push(header);
+                    subjectCodeMap[header] = code || 'UNKNOWN';
+                }
+            });
+
+            headers.forEach(h => {
+                const cleanH = h.trim();
+                if (!subjectColumns.includes(cleanH) && !openElectiveColumns.includes(cleanH)) {
+                    let hasGrades = false;
+                    for (const row of regularData) {
+                        const val = row[cleanH] ? String(row[cleanH]).trim() : '';
+                        if (['S', 'A', 'B', 'C', 'D', 'E', 'F', 'Absent', 'With-held', '*'].includes(val)) { hasGrades = true; break; }
+                    }
+                    if (hasGrades) {
+                        const codeMatch = cleanH.match(/\b(\d{4}[A-Z]?)\b/);
+                        if (codeMatch) {
+                            const code = codeMatch[1];
+                            if (isOpenElective(code, cleanH)) {
+                                openElectiveColumns.push(cleanH);
+                                subjectCodeMap[cleanH] = 'OE';
+                            } else {
+                                subjectColumns.push(cleanH);
+                                subjectCodeMap[cleanH] = code || 'UNKNOWN';
+                            }
+                        } else {
+                            if (isOpenElective('', cleanH)) {
+                                openElectiveColumns.push(cleanH);
+                                subjectCodeMap[cleanH] = 'OE';
+                            } else {
+                                subjectColumns.push(cleanH);
+                                subjectCodeMap[cleanH] = 'UNKNOWN';
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Merge open electives
+            const mergedOEName = 'Open Elective';
+            const processedStudents = [];
+
+            regularData.forEach((row, idx) => {
+                const name = row['Name of Student'] || row['Name'] || row['Student Name'] || '';
+                const regNo = row['Register No'] || row['Reg No'] || row['Register Number'] || '';
+                if (!name.toString().trim()) return;
+
+                const student = {
+                    id: idx,
+                    name: name.toString().trim(),
+                    regNo: regNo.toString().trim(),
+                    subjects: {},
+                    isOpenElective: {},
+                    oeCode: ''
+                };
+
+                subjectColumns.forEach(col => {
+                    const grade = row[col] ? String(row[col]).trim() : 'Absent';
+                    student.subjects[col] = grade || 'Absent';
+                    student.isOpenElective[col] = false;
+                });
+
+                let oeGrade = 'Absent';
+                let oeCode = '';
+                for (const col of openElectiveColumns) {
+                    const grade = row[col] ? String(row[col]).trim() : 'Absent';
+                    if (grade !== '*' && grade !== 'Absent' && grade !== '') {
+                        oeGrade = grade;
+                        oeCode = col;
+                        break;
+                    }
+                }
+
+                student.subjects[mergedOEName] = oeGrade;
+                student.isOpenElective[mergedOEName] = true;
+                student.oeCode = oeCode;
+
+                processedStudents.push(student);
+            });
+
+            const newSubjectColumns = [...subjectColumns];
+            if (openElectiveColumns.length > 0) {
+                newSubjectColumns.push(mergedOEName);
+                subjectCodeMap[mergedOEName] = 'OE';
+            }
+            subjectColumns = newSubjectColumns;
+            openElectiveColumns = openElectiveColumns.length > 0 ? [mergedOEName] : [];
+            allStudents = processedStudents;
+
+            allStudents.forEach(s => calculateStudentMetrics(s));
+            semesterDetected = detectSemesterFromData();
+
+            document.getElementById('infoSection').style.display = 'flex';
+            document.getElementById('controlsSection').style.display = 'flex';
+            document.getElementById('resultContainer').classList.add('active');
+            document.getElementById('generatedDate').textContent = new Date().toLocaleString();
+            filterData();
+        }
+
+        function detectSemesterFromData() {
+            if (allStudents.length === 0) return 'Unknown';
+            const subjectCodes = subjectColumns.map(col => subjectCodeMap[col] || col);
+            const semesterMap = {
+                'S1': ['1001', '1002', '1003', '1004', '1005', '1007', '1008', '1009'],
+                'S2': ['2001', '2002', '2003', '2006', '2008', '2009', '2011', '2019', '2021', '2029'],
+                'S3': ['3009', '3011', '3012', '3013', '3014', '3015', '3016', '3017', '3018', '3019'],
+                'S4': ['4001', '4009', '4011', '4012', '4013', '4016', '4017', '4018', '4019'],
+                'S5': ['5008', '5009', '5011', '5012', '5013', '5014A', '5014B', '5014C', '5017', '5018', '5019'],
+                'S6': ['6001', '6002', '6007', '6009', '6011A', '6011B', '6011C', '6012A', '6012B', '6012C', '6012D', '6017', '6018', '6019']
+            };
+            let bestSem = 'Unknown', bestMatch = 0;
+            for (const [sem, codes] of Object.entries(semesterMap)) {
+                let match = 0;
+                codes.forEach(code => { if (subjectCodes.some(sc => sc.includes(code) || code.includes(sc))) match++; });
+                if (match > bestMatch) { bestMatch = match;
+                    bestSem = sem; }
+            }
+            return bestSem;
+        }
+
+        function calculateStudentMetrics(student) {
+            let totalPoints = 0, totalCredits = 0, failures = 0, hasWithheld = false, hasAbsent = false;
+            subjectColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const grade = student.subjects[col] || 'Absent';
+                const isOE = student.isOpenElective[col] || false;
+                const credit = isOE ? 4 : (CREDIT_DATABASE[code] ? CREDIT_DATABASE[code].credit : 4);
+                const gradePoint = GRADE_POINTS[grade] || 0;
+                if (credit > 0 && grade !== 'Absent' && grade !== 'With-held' && grade !== '*') {
+                    totalPoints += credit * gradePoint;
+                    totalCredits += credit;
+                }
+                if (grade === 'F') failures++;
+                if (grade === 'Absent') hasAbsent = true;
+                if (grade === 'With-held') hasWithheld = true;
+            });
+            student.sgpa = totalCredits > 0 ? parseFloat((totalPoints / totalCredits).toFixed(2)) : 0;
+            student.percentage = parseFloat((student.sgpa * 9.5).toFixed(2));
+            student.failures = failures;
+            student.hasAbsent = hasAbsent;
+            student.hasWithheld = hasWithheld;
+            student.passed = failures === 0 && !hasWithheld;
+            student.status = hasWithheld ? 'With-held' : (hasAbsent && failures === 0) ? 'Absent' : student.passed ? 'Pass' : 'Fail';
+        }
+
+        function sortData(sortBy) {
+            if (currentSort === sortBy) sortAscending = !sortAscending;
+            else { currentSort = sortBy;
+                sortAscending = false; }
+            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+            const map = { 'sgpa': 'sortSGPA', 'regNo': 'sortRegNo', 'name': 'sortName', 'percentage': 'sortPercentage' };
+            const btn = document.getElementById(map[sortBy]);
+            if (btn) btn.classList.add('active');
+            filteredStudents.sort((a, b) => {
+                let va = a[sortBy],
+                    vb = b[sortBy];
+                if (typeof va === 'string') { va = va.toLowerCase();
+                    vb = vb.toLowerCase(); }
+                if (va < vb) return sortAscending ? -1 : 1;
+                if (va > vb) return sortAscending ? 1 : -1;
+                return 0;
+            });
+            let rank = 1;
+            filteredStudents.forEach((s, i) => {
+                if (i > 0 && s.sgpa < filteredStudents[i - 1].sgpa) rank = i + 1;
+                s.rank = s.passed ? rank : '-';
+            });
+            renderResults();
+        }
+
+        function filterData() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            let filtered = [...allStudents];
+            if (search) filtered = filtered.filter(s => s.name.toLowerCase().includes(search) || s.regNo.includes(search));
+            if (status !== 'all') filtered = filtered.filter(s => s.status === status);
+            filteredStudents = filtered;
+            sortData(currentSort);
+        }
+
+        // ============================================================
+        // RENDER RESULTS (Webpage)
+        // ============================================================
+        function renderResults() {
+            const container = document.getElementById('resultContent');
+            if (filteredStudents.length === 0) {
+                container.innerHTML = `<div class="loading"><p>No students found.</p></div>`;
+                return;
+            }
+
+            let html = '';
+            const semName = semesterDetected !== 'Unknown' ? semesterDetected : 'Current Semester';
+            const total = filteredStudents.length;
+            const passed = filteredStudents.filter(s => s.status === 'Pass').length;
+            const failed = filteredStudents.filter(s => s.status === 'Fail').length;
+            const absent = filteredStudents.filter(s => s.status === 'Absent').length;
+            const withheld = filteredStudents.filter(s => s.status === 'With-held').length;
+            const passPercent = total > 0 ? ((passed / total) * 100).toFixed(2) : 0;
+            const avgSGPA = total > 0 ? (filteredStudents.reduce((sum, s) => sum + s.sgpa, 0) / total).toFixed(2) : 0;
+
+            html += `
+                <div style="text-align:center;margin:5px 0 15px;">
+                    <h2 style="color:#1a3a5c;font-size:18px;font-family:'Asap Condensed',sans-serif;">RESULT ANALYSIS - ${semName}</h2>
+                    ${collegeName ? `<p style="color:#666;font-size:12px;font-family:'Asap Condensed',sans-serif;">${collegeName}${deptName ? ' | ' + deptName : ''}</p>` : ''}
+                    <p style="color:#666;font-size:12px;font-family:'Asap Condensed',sans-serif;">Total Regular Students: ${total}</p>
+                    ${openElectiveColumns.length > 0 ? `<p style="color:#fd7e14;font-size:11px;font-family:'Asap Condensed',sans-serif;">🟠 Open Elective column merged</p>` : ''}
+                </div>
+                <div class="summary-grid">
+                    <div class="summary-card total"><div class="value">${total}</div><div class="label">📊 Total</div></div>
+                    <div class="summary-card pass"><div class="value" style="color:#28a745;">${passed}</div><div class="label">✅ Passed</div></div>
+                    <div class="summary-card fail"><div class="value" style="color:#dc3545;">${failed}</div><div class="label">❌ Failed</div></div>
+                    <div class="summary-card withheld"><div class="value" style="color:#fd7e14;">${withheld}</div><div class="label">⏳ Withheld</div></div>
+                    <div class="summary-card total"><div class="value" style="color:#17a2b8;">${passPercent}%</div><div class="label">📈 Pass %</div></div>
+                    <div class="summary-card total"><div class="value" style="color:#6f42c1;">${avgSGPA}</div><div class="label">📊 Avg SGPA</div></div>
+                </div>
+            `;
+
+            const allColumns = subjectColumns;
+            html += `<div class="section-title">📋 Student Results</div><div class="table-wrapper"><table><thead>`;
+            html += `<tr><th rowspan="3" style="width:30px;">Sl.No</th><th rowspan="3" style="min-width:120px;text-align:left;">Student Name</th><th rowspan="3" style="min-width:80px;">Register No</th>`;
+            allColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                const displayName = isOE ? 'Open Elective' : (CREDIT_DATABASE[code] ? CREDIT_DATABASE[code].name : col.replace(/^\d{4}-?/, ''));
+                const shortName = displayName.length > 20 ? displayName.substring(0, 18) + '...' : displayName;
+                html += `<th class="subject-header" style="max-width:55px;min-width:45px;word-wrap:break-word;white-space:normal;line-height:1.2;">${shortName}${isOE ? ' <span class="open-elective-tag">OE</span>' : ''}</th>`;
+            });
+            html += `<th rowspan="3" style="min-width:50px;">Failed</th><th rowspan="3" style="min-width:45px;">SGPA</th><th rowspan="3" style="min-width:45px;">%</th><th rowspan="3" style="min-width:45px;">Rank</th><th rowspan="3" style="min-width:60px;">Status</th></tr>`;
+            html += `<tr class="subject-code-row">`;
+            allColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                html += `<th style="font-size:10px;padding:2px 4px;">${isOE ? 'OE' : code}</th>`;
+            });
+            html += `</tr><tr class="credit-row">`;
+            allColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                const credit = isOE ? 4 : (CREDIT_DATABASE[code] ? CREDIT_DATABASE[code].credit : 4);
+                html += `<th style="font-size:9px;padding:2px 4px;">${credit}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+
+            filteredStudents.forEach((s, idx) => {
+                const statusClass = s.status.toLowerCase();
+                html += `<tr><td>${idx+1}</td><td style="text-align:left;font-weight:500;font-size:11px;">${s.name}</td><td style="font-size:11px;">${s.regNo}</td>`;
+                allColumns.forEach(col => {
+                    const grade = s.subjects[col] || 'Absent';
+                    const gradeClass = `grade-${grade.replace(/\s/g, '-')}`;
+                    html += `<td><span class="grade-badge ${gradeClass}">${grade}</span></td>`;
+                });
+                html += `<td>${s.failures > 0 ? `<span style="color:#dc3545;font-weight:600;">${s.failures}</span>` : '0'}</td>`;
+                html += `<td>${s.sgpa.toFixed(2)}</td><td>${s.percentage.toFixed(2)}</td><td>${s.rank}</td>`;
+                html += `<td><span class="status-badge status-${statusClass}">${s.status}</span></td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+
+            html += `<div class="page-break"></div>`;
+
+            html += `<div class="section-title">📊 Subject-wise Analysis</div><div class="table-wrapper"><table><thead><tr>
+                <th style="text-align:left;min-width:180px;">Subject</th><th style="min-width:60px;">Registered</th><th style="min-width:60px;">Passed</th><th style="min-width:60px;">Failed</th><th style="min-width:60px;">Pass %</th>
+            </tr></thead><tbody>`;
+            const stats = getSubjectStats();
+            stats.forEach(stat => {
+                const pct = stat.registered > 0 ? ((stat.passed / stat.registered) * 100).toFixed(2) : 0;
+                html += `<tr><td style="text-align:left;font-size:11px;">${stat.name}</td><td>${stat.registered}</td><td>${stat.passed}</td><td>${stat.failed}</td><td>${pct}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+
+            html += `<div class="section-title">📈 Grade Distribution</div><div class="table-wrapper"><table><thead><tr><th style="text-align:left;min-width:180px;">Subject</th>`;
+            ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'Absent', 'With-held', '*'].forEach(g => { html += `<th style="min-width:35px;">${g}</th>`; });
+            html += `</tr></thead><tbody>`;
+            const grades = getGradeDistribution();
+            grades.forEach(item => {
+                html += `<tr><td style="text-align:left;font-size:11px;">${item.name}</td>`;
+                ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'Absent', 'With-held', '*'].forEach(g => {
+                    html += `<td>${item.grades[g] || 0}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</tbody></table></div>`;
+
+            container.innerHTML = html;
+        }
+
+        function getSubjectStats() {
+            const stats = [];
+            const totalStudents = filteredStudents.length;
+            subjectColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                const name = isOE ? 'Open Elective' : (CREDIT_DATABASE[code] ? `${code} - ${CREDIT_DATABASE[code].name}` : col);
+                let passed = 0,
+                    failed = 0;
+                filteredStudents.forEach(s => {
+                    const grade = s.subjects[col] || 'Absent';
+                    if (grade === 'F') failed++;
+                    else if (grade !== 'Absent' && grade !== 'With-held' && grade !== '*') passed++;
+                });
+                stats.push({ name, registered: totalStudents, passed, failed });
+            });
+            return stats;
+        }
+
+        function getGradeDistribution() {
+            const dist = [];
+            subjectColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                const name = isOE ? 'Open Elective' : (CREDIT_DATABASE[code] ? `${code} - ${CREDIT_DATABASE[code].name}` : col);
+                const grades = { 'S': 0, 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'Absent': 0, 'With-held': 0, '*': 0 };
+                filteredStudents.forEach(s => {
+                    const grade = s.subjects[col] || 'Absent';
+                    if (grades.hasOwnProperty(grade)) grades[grade]++;
+                });
+                dist.push({ name, grades });
+            });
+            return dist;
+        }
+
+        // ============================================================
+        // EXPORT EXCEL
+        // ============================================================
+        function exportToExcel() {
+            if (filteredStudents.length === 0) { alert('No data to export.'); return; }
+            const wb = XLSX.utils.book_new();
+            const wsData = [];
+            const header1 = ['Sl.No', 'Student Name', 'Register No'];
+            subjectColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                const name = isOE ? 'Open Elective' : (CREDIT_DATABASE[code] ? CREDIT_DATABASE[code].name : col.replace(/^\d{4}-?/, ''));
+                header1.push(name);
+            });
+            header1.push('Failed', 'SGPA', '%', 'Rank', 'Status');
+            wsData.push(header1);
+
+            const header2 = ['', '', ''];
+            subjectColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                header2.push(isOE ? 'OE' : code);
+            });
+            header2.push('', '', '', '', '');
+            wsData.push(header2);
+
+            const header3 = ['', '', ''];
+            subjectColumns.forEach(col => {
+                const code = subjectCodeMap[col] || col;
+                const isOE = openElectiveColumns.includes(col);
+                const credit = isOE ? 4 : (CREDIT_DATABASE[code] ? CREDIT_DATABASE[code].credit : 4);
+                header3.push(credit);
+            });
+            header3.push('', '', '', '', '');
+            wsData.push(header3);
+
+            filteredStudents.forEach((s, idx) => {
+                const row = [idx + 1, s.name, s.regNo];
+                subjectColumns.forEach(col => { row.push(s.subjects[col] || 'Absent'); });
+                row.push(s.failures, s.sgpa.toFixed(2), s.percentage.toFixed(2), s.rank, s.status);
+                wsData.push(row);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!cols'] = [{ wch: 6 }, { wch: 25 }, { wch: 14 }];
+            subjectColumns.forEach(() => ws['!cols'].push({ wch: 15 }));
+            ws['!cols'].push({ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 });
+            XLSX.utils.book_append_sheet(wb, ws, 'Student Results');
+
+            const total = filteredStudents.length;
+            const passed = filteredStudents.filter(s => s.status === 'Pass').length;
+            const failed = filteredStudents.filter(s => s.status === 'Fail').length;
+            const withheld = filteredStudents.filter(s => s.status === 'With-held').length;
+            const pct = total > 0 ? ((passed / total) * 100).toFixed(2) : 0;
+            const avg = total > 0 ? (filteredStudents.reduce((sum, s) => sum + s.sgpa, 0) / total).toFixed(2) : 0;
+            const summaryData = [
+                [`RESULT ANALYSIS - ${semesterDetected}`],
+                [collegeName || ''],
+                [deptName || ''],
+                [''],
+                ['Total Students', total],
+                ['Passed', passed],
+                ['Failed', failed],
+                ['Withheld', withheld],
+                ['Pass %', pct + '%'],
+                ['Avg SGPA', avg]
+            ];
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            wsSummary['!cols'] = [{ wch: 25 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+            const stats = getSubjectStats();
+            const subjData = [['Subject Code', 'Subject Name', 'Registered', 'Passed', 'Failed', 'Pass %']];
+            stats.forEach(stat => {
+                const pct = stat.registered > 0 ? ((stat.passed / stat.registered) * 100).toFixed(2) : 0;
+                const parts = stat.name.split(' - ');
+                subjData.push([parts[0] || '', parts[1] || stat.name, stat.registered, stat.passed, stat.failed, pct + '%']);
+            });
+            const wsSubj = XLSX.utils.aoa_to_sheet(subjData);
+            wsSubj['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+            XLSX.utils.book_append_sheet(wb, wsSubj, 'Subject Analysis');
+
+            const grades = getGradeDistribution();
+            const gradeData = [
+                ['Subject Code', 'Subject Name', 'S', 'A', 'B', 'C', 'D', 'E', 'F', 'Absent', 'With-held', '*']
+            ];
+            grades.forEach(item => {
+                const parts = item.name.split(' - ');
+                gradeData.push([
+                    parts[0] || '', parts[1] || item.name,
+                    item.grades['S'], item.grades['A'], item.grades['B'], item.grades['C'],
+                    item.grades['D'], item.grades['E'], item.grades['F'],
+                    item.grades['Absent'], item.grades['With-held'], item.grades['*']
+                ]);
+            });
+            const wsGrade = XLSX.utils.aoa_to_sheet(gradeData);
+            wsGrade['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 8 }, { wch: 10 }, { wch: 6 }];
+            XLSX.utils.book_append_sheet(wb, wsGrade, 'Grade Distribution');
+
+            XLSX.writeFile(wb, `Result_Analysis_${semesterDetected}_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        // ============================================================
+        // EXPORT PDF - FIXED VERSION
+        // ============================================================
+        function exportPDF() {
+            if (filteredStudents.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+
+            const semName = semesterDetected !== 'Unknown' ? semesterDetected : 'Current Semester';
+            const total = filteredStudents.length;
+            const passed = filteredStudents.filter(s => s.status === 'Pass').length;
+            const failed = filteredStudents.filter(s => s.status === 'Fail').length;
+            const withheld = filteredStudents.filter(s => s.status === 'With-held').length;
+            const passPercent = total > 0 ? ((passed / total) * 100).toFixed(2) : 0;
+            const avgSGPA = total > 0 ? (filteredStudents.reduce((sum, s) => sum + s.sgpa, 0) / total).toFixed(2) : 0;
+
+            // ====== HEADER ======
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text(`RESULT ANALYSIS - ${semName}`, 20, 20);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const collegeDeptText = collegeName + (deptName ? ' | ' + deptName : '');
+            doc.text(collegeDeptText || '', 20, 27);
+            doc.text(`Total Regular Students: ${total}`, 20, 33);
+
+            // ====== SUMMARY ======
+            doc.setFontSize(9);
+            const summaryData = [
+                ['Total', 'Passed', 'Failed', 'Withheld', 'Pass %', 'Avg SGPA'],
+                [total.toString(), passed.toString(), failed.toString(), withheld.toString(), passPercent + '%', avgSGPA]
+            ];
+
+            doc.autoTable({
+                startY: 40,
+                head: [summaryData[0]],
+                body: [summaryData[1]],
+                theme: 'plain',
+                styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+                headStyles: { fillColor: [45, 90, 135], textColor: [255, 255, 255], fontSize: 7 },
+                columnStyles: {
+                    0: { cellWidth: 22 },
+                    1: { cellWidth: 22 },
+                    2: { cellWidth: 22 },
+                    3: { cellWidth: 22 },
+                    4: { cellWidth: 22 },
+                    5: { cellWidth: 22 }
+                },
+                margin: { left: 20 }
+            });
+
+            // ====== STUDENT RESULTS TABLE ======
+            const allColumns = subjectColumns;
+            const headers = ['Sl', 'Name', 'Reg No', ...allColumns.map(col => subjectCodeMap[col] || col), 'Fail', 'SGPA', '%', 'Rank', 'Status'];
+
+            // FIX 1: Use sequential index for Sl.No
+            const tableRows = filteredStudents.map((s, index) => {
+                const row = [(index + 1).toString(), s.name, s.regNo];
+                allColumns.forEach(col => {
+                    row.push(s.subjects[col] || 'Absent');
+                });
+                row.push(s.failures.toString(), s.sgpa.toFixed(2), s.percentage.toFixed(2), s.rank.toString(), s.status);
+                return row;
+            });
+
+            // Color only F, Absent, With-held
+            const getGradeColor = (grade) => {
+                if (grade === 'F') return [220, 53, 69];
+                if (grade === 'Absent') return [108, 117, 125];
+                if (grade === 'With-held') return [52, 58, 64];
+                return null;
+            };
+
+            const getStatusColor = (status) => {
+                if (status === 'Pass') return [40, 167, 69];
+                if (status === 'Fail') return [220, 53, 69];
+                if (status === 'Absent') return [108, 117, 125];
+                if (status === 'With-held') return [255, 193, 7];
+                return null;
+            };
+
+            doc.autoTable({
+                startY: doc.lastAutoTable ? doc.lastAutoTable.finalY + 5 : 55,
+                head: [headers],
+                body: tableRows,
+                theme: 'striped',
+                styles: {
+                    fontSize: 6.5,
+                    cellPadding: 1.5,
+                    halign: 'center',
+                    valign: 'middle',
+                    lineWidth: 0.1,
+                    lineColor: [200, 200, 200]
+                },
+                headStyles: {
+                    fillColor: [26, 58, 92],
+                    textColor: [255, 255, 255],
+                    fontSize: 6,
+                    halign: 'center',
+                    cellPadding: 1.5
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 249, 250]
+                },
+                columnStyles: {
+                    0: { cellWidth: 7 },      // Sl.No
+                    1: { cellWidth: 28, halign: 'left' },  // Name
+                    2: { cellWidth: 16 },     // Reg No
+                },
+                didParseCell: function(data) {
+                    // Only color F, Absent, With-held in grade columns
+                    if (data.section === 'body' && data.column.index >= 3 && data.column.index <= 3 + allColumns.length - 1) {
+                        const grade = data.cell.raw;
+                        const color = getGradeColor(grade);
+                        if (color) {
+                            data.cell.styles.fillColor = color;
+                            data.cell.styles.textColor = [255, 255, 255];
+                        }
+                    }
+                    // Color status column (last column)
+                    if (data.section === 'body' && data.column.index === 3 + allColumns.length + 4) {
+                        const status = data.cell.raw;
+                        const color = getStatusColor(status);
+                        if (color) {
+                            data.cell.styles.fillColor = color;
+                            data.cell.styles.textColor = [255, 255, 255];
+                            data.cell.styles.fontSize = 5.5;
+                        }
+                    }
+                },
+                margin: { left: 12, right: 12 },
+                tableWidth: 'auto',
+                pageBreak: 'auto'
+            });
+
+            // ====== PAGE 2: Subject-wise Analysis & Grade Distribution ======
+            doc.addPage();
+
+            // FIX 2: Use plain text headings (no Unicode symbols)
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('SUBJECT-WISE ANALYSIS', 20, 20);
+
+            const stats = getSubjectStats();
+            const analysisData = stats.map(stat => {
+                const pct = stat.registered > 0 ? ((stat.passed / stat.registered) * 100).toFixed(2) : 0;
+                const parts = stat.name.split(' - ');
+                return [parts[0] || '', parts[1] || stat.name, stat.registered.toString(), stat.passed.toString(), stat.failed.toString(), pct + '%'];
+            });
+
+            doc.autoTable({
+                startY: 28,
+                head: [['Code', 'Subject', 'Registered', 'Passed', 'Failed', 'Pass %']],
+                body: analysisData,
+                theme: 'striped',
+                styles: { fontSize: 7.5, cellPadding: 2 },
+                headStyles: { fillColor: [26, 58, 92], textColor: [255, 255, 255], fontSize: 7 },
+                columnStyles: {
+                    0: { cellWidth: 15 },
+                    1: { cellWidth: 55, halign: 'left' },
+                    2: { cellWidth: 20 },
+                    3: { cellWidth: 20 },
+                    4: { cellWidth: 20 },
+                    5: { cellWidth: 20 }
+                },
+                margin: { left: 20, right: 20 }
+            });
+
+            // Grade Distribution - Plain text heading
+            const gradeDistY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : 50;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('GRADE DISTRIBUTION', 20, gradeDistY);
+
+            const gradeLabels = ['S', 'A', 'B', 'C', 'D', 'E', 'F', 'Absent', 'With-held', '*'];
+            const gradeDistData = getGradeDistribution();
+            const gradeTableData = gradeDistData.map(item => {
+                const parts = item.name.split(' - ');
+                return [parts[0] || '', parts[1] || item.name, ...gradeLabels.map(g => item.grades[g]?.toString() || '0')];
+            });
+
+            doc.autoTable({
+                startY: gradeDistY + 8,
+                head: [['Code', 'Subject', ...gradeLabels]],
+                body: gradeTableData,
+                theme: 'striped',
+                styles: { fontSize: 6.5, cellPadding: 1.5 },
+                headStyles: { fillColor: [26, 58, 92], textColor: [255, 255, 255], fontSize: 6.5 },
+                columnStyles: {
+                    0: { cellWidth: 12 },
+                    1: { cellWidth: 45, halign: 'left' },
+                },
+                margin: { left: 20, right: 20 }
+            });
+
+            // Save PDF
+            doc.save(`Result_Analysis_${semesterDetected}_${new Date().toISOString().slice(0,10)}.pdf`);
+        }
+
+        // ============================================================
+        // RESET
+        // ============================================================
+        function resetAll() {
+            allStudents = [];
+            filteredStudents = [];
+            subjectColumns = [];
+            subjectCodeMap = {};
+            openElectiveColumns = [];
+            semesterDetected = '';
+            document.getElementById('resultContent').innerHTML = `<div class="loading"><p>Upload a file to analyze results.</p></div>`;
+            document.getElementById('infoSection').style.display = 'none';
+            document.getElementById('controlsSection').style.display = 'none';
+            document.getElementById('resultContainer').classList.remove('active');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = 'all';
+            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('sortSGPA').classList.add('active');
+        }
+    </script>
+</body>
+</html>
